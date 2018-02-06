@@ -1,0 +1,16 @@
+# for visual code
+.vscode/*
+
+# lib FreeRTOS, keep modified file for Arduino
+lib/*
+!lib/FreeRTOSv10.0.0/
+lib/FreeRTOSv10.0.0/*
+!lib/FreeRTOSv10.0.0/FreeRTOS/
+lib/FreeRTOSv10.0.0/FreeRTOS/*
+!lib/FreeRTOSv10.0.0/FreeRTOS/Source/
+lib/FreeRTOSv10.0.0/FreeRTOS/Source/*
+!lib/FreeRTOSv10.0.0/FreeRTOS/Source/portable/
+lib/FreeRTOSv10.0.0/FreeRTOS/Source/portable/*
+!lib/FreeRTOSv10.0.0/FreeRTOS/Source/portable/GCC/
+lib/FreeRTOSv10.0.0/FreeRTOS/Source/portable/GCC/*
+!lib/FreeRTOSv10.0.0/FreeRTOS/Source/portable/GCC/ATMega328/
