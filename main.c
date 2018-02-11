@@ -15,10 +15,16 @@
  ******************************************************************************/
  
 #define mainLED_TASK_PRIORITY   (tskIDLE_PRIORITY)
+#define bit_get(p,m) ((p) & (m))
+#define bit_set(p,m) ((p) |= (m))
+#define bit_clear(p,m) ((p) &= ~(m))
+#define bit_flip(p,m) ((p) ^= (m))
+#define bit_write(c,p,m) (c ? bit_set(p,m) : bit_clear(p,m))
  
 /******************************************************************************
  * Private function prototypes.
  ******************************************************************************/
+static void vDetectMotion(void* pvParameters);
 static void vBlinkLedGreen(void* pvParameters); 
 static void vBlinkLedRed(void* pvParameters);
 static void vBlinkLedYellow(void* pvParameters);
@@ -26,8 +32,10 @@ static void vBlinkLedYellow(void* pvParameters);
 /******************************************************************************
  * Public function definitions.
  ******************************************************************************/
-xQueueHandle GlobalBlinkingQueue = 0;
-xSemaphoreHandle gatekeeper = 0; 
+xQueueHandle blinkingQueue = 0;
+xSemaphoreHandle blinkingKeeper = 0;
+xSemaphoreHandle doJobSignal = 0;
+
 
 int main(void)
 {
@@ -43,10 +51,11 @@ int main(void)
     //     &blink_handle
     // );
 
-    GlobalBlinkingQueue = xQueueCreate(5, sizeof(int));
-    gatekeeper = xSemaphoreCreateMutex();
+    blinkingQueue = xQueueCreate(5, sizeof(int));
+    blinkingKeeper = xSemaphoreCreateMutex();
+    vSemaphoreCreateBinary(doJobSignal);
 
-
+    xTaskCreate(vDetectMotion, (signed char*)"motion", configMINIMAL_STACK_SIZE, NULL, 3, NULL);
     xTaskCreate(vBlinkLedGreen, (signed char*)"blink green", configMINIMAL_STACK_SIZE, NULL, 1, NULL);
     xTaskCreate(vBlinkLedRed, (signed char*)"blink red", configMINIMAL_STACK_SIZE, NULL, 2, NULL);
     xTaskCreate(vBlinkLedYellow, (signed char*)"blink yellow", configMINIMAL_STACK_SIZE, NULL, 1, NULL);
@@ -66,24 +75,49 @@ void vApplicationIdleHook(void)
 /******************************************************************************
  * Private function definitions.
  ******************************************************************************/
+static void vDetectMotion(void* pvParameters)
+{
+    bit_set(DDRD, _BV(PD6));  // Pin 6 to write
+    bit_clear(DDRB, _BV(PB4)); // Pin 12 to read
+
+    for ( ;; )
+    {
+        if (bit_get(PINB, _BV(PB4)))
+        {
+            bit_set(PORTD, _BV(PD6));
+            xSemaphoreGive(doJobSignal);
+        }
+        else
+        {
+            bit_clear(PORTD, _BV(PD6));
+        }
+
+        vTaskDelay(1000);
+    }
+}
+
 static void vBlinkLedGreen(void* pvParameters)
 {
-    DDRD |= _BV(PD5); // sets pin 5 to write
+    bit_set(DDRD, _BV(PD5)); // sets pin 5 to write
  
     for ( ;; )
     {
-        if (xSemaphoreTake(gatekeeper, 2000))
+        if (xSemaphoreTake(doJobSignal, 1000))
         {
-            PORTD ^= _BV(PD5); // sets pin 5 to reverse value it was before
-            vTaskDelay(1000);
-            xQueueSend(GlobalBlinkingQueue, 1, 1000);
-            xQueueSend(GlobalBlinkingQueue, 2, 1000);
-            xQueueSend(GlobalBlinkingQueue, 3, 1000);
-            vTaskDelay(4000);
+            if (xSemaphoreTake(blinkingKeeper, 2000))
+            {
+                bit_set(PORTD, _BV(PD5));
+                vTaskDelay(500);
+                xQueueSend(blinkingQueue, 1, 500);
+                xQueueSend(blinkingQueue, 2, 500);
+                xQueueSend(blinkingQueue, 3, 500);
+                vTaskDelay(2000);
 
-            PORTD ^= _BV(PD5);
-            xSemaphoreGive(gatekeeper);
+                bit_clear(PORTD, _BV(PD5));
+                xSemaphoreGive(blinkingKeeper);
+            }
         }
+        
 
         vTaskDelay(500);
 
@@ -93,15 +127,15 @@ static void vBlinkLedGreen(void* pvParameters)
 static void vBlinkLedRed(void* pvParameters)
 {
     int rx_int = 0;
-    DDRD |= _BV(PD4);
+    bit_set(DDRD, _BV(PD4));
  
     for ( ;; )
     {
-        while (xQueueReceive(GlobalBlinkingQueue, &rx_int, 500))
+        while (xQueueReceive(blinkingQueue, &rx_int, 500))
         {
-            PORTD ^= _BV(PD4);
+            bit_flip(PORTD, _BV(PD4));
             vTaskDelay(200);
-            PORTD ^= _BV(PD4);
+            bit_flip(PORTD, _BV(PD4));
             vTaskDelay(200);
         }
     }
@@ -109,16 +143,16 @@ static void vBlinkLedRed(void* pvParameters)
 
 static void vBlinkLedYellow(void* pvParameters)
 {
-    DDRD |= _BV(PD3);
+    bit_set(DDRD, _BV(PD3));
  
     for ( ;; )
     {
-        if (xSemaphoreTake(gatekeeper, 4000))
+        if (xSemaphoreTake(blinkingKeeper, 4000))
         {
-            PORTD ^= _BV(PD3);
+            bit_set(PORTD, _BV(PD3));
             vTaskDelay(1000);
-            PORTD ^= _BV(PD3);
-            xSemaphoreGive(gatekeeper);
+            bit_clear(PORTD, _BV(PD3));
+            xSemaphoreGive(blinkingKeeper);
         }
 
         vTaskDelay(500);

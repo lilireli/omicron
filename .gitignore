@@ -14,3 +14,14 @@ lib/FreeRTOSv10.0.0/FreeRTOS/Source/portable/*
 !lib/FreeRTOSv10.0.0/FreeRTOS/Source/portable/GCC/
 lib/FreeRTOSv10.0.0/FreeRTOS/Source/portable/GCC/*
 !lib/FreeRTOSv10.0.0/FreeRTOS/Source/portable/GCC/ATMega328/
+
+# compiled files
+*.d
+*.lst
+*.o
+*.eep
+*.elf
+*.hex
+*.lss
+*.map
+*.sym
